@@ -35,14 +35,17 @@ def remove_nodes_in_route_from_graph(distance_matrix, route):
         distance_matrix[:, i] = np.inf
     return distance_matrix
 
-def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
+def importance_of_node_in_between(source, dest, demand_matrix):
     demand_from_source = demand_matrix[source, :]
     demand_to_dest = demand_matrix[:, dest]
-    node_cost = 1.0 / (demand_from_source + demand_to_dest + 1.0)
-    edge_cost = distance_matrix + weight * np.add.outer(node_cost, node_cost)
-    print('ratio: {}'.format(np.nanmax((edge_cost - distance_matrix) / distance_matrix)))
+    return demand_from_source + demand_to_dest
 
+def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
+    node_cost = 1.0 / (1.0 + importance_of_node_in_between(source, dest, demand_matrix))
+    edge_cost = distance_matrix + weight * np.add.outer(node_cost, node_cost)
     edge_cost[distance_matrix == np.inf] = 0.0
+    print('ratio: {}'.format(-1 + np.nanmax(edge_cost / (weight * np.add.outer(node_cost, node_cost)))))
+
     graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
     best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)
 
@@ -57,7 +60,6 @@ def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_
         try:
             route_chunk = get_best_route_between(source, dest, distance_matrix, demand_matrix, weight)
         except nx.NetworkXNoPath as e:
-            print(e)
             break
         route_chunk = route_chunk[1:]
         route.extend(route_chunk)
@@ -86,7 +88,13 @@ demand_matrix = read_matrix(demand_file)
 
 print(demand_matrix.sum())
 
-weight = 2
+dist_copy = distance_matrix.copy()
+dist_copy[distance_matrix == np.inf] = np.nan
+dema_copy = demand_matrix.copy()
+dema_copy[demand_matrix == 0.] = np.nan
+print(np.nanmean(dist_copy), np.nanmean(dema_copy))
+
+weight = 5000
 min_hop_count = 2
 max_hop_count = 8
 
@@ -95,3 +103,4 @@ routes = list(get_routes(distance_matrix, demand_matrix, weight, min_hop_count, 
 print(len(routes))
 for route in routes:
     print(route)
+    assert(len(route) == len(set(route)))
