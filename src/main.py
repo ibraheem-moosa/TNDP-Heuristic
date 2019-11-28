@@ -103,7 +103,7 @@ dema_copy = demand_matrix.copy()
 dema_copy[demand_matrix == 0.] = np.nan
 print(np.nanmean(dist_copy), np.nanmean(dema_copy))
 
-weight = 500
+weight = 50
 min_hop_count = 12
 max_hop_count = 25
 
