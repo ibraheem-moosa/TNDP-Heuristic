@@ -40,11 +40,18 @@ def importance_of_node_in_between(source, dest, demand_matrix):
     demand_to_dest = demand_matrix[:, dest]
     return demand_from_source + demand_to_dest
 
+def node_cost_from_importance(node_importance, weight):
+    # return np.exp(- weight * node_importance)
+    return weight / (1.0 + node_importance) 
+
+
 def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
-    node_cost = 1.0 / (1.0 + importance_of_node_in_between(source, dest, demand_matrix))
-    edge_cost = distance_matrix + weight * np.add.outer(node_cost, node_cost)
+    node_importance = importance_of_node_in_between(source, dest, demand_matrix)
+    node_cost = node_cost_from_importance(node_importance, weight)
+    edge_cost = distance_matrix + np.add.outer(node_cost, node_cost)
+
     edge_cost[distance_matrix == np.inf] = 0.0
-    print('ratio: {}'.format(-1 + np.nanmax(edge_cost / (weight * np.add.outer(node_cost, node_cost)))))
+    print('ratio: {}'.format(np.nanmax(edge_cost / np.add.outer(node_cost, node_cost))))
 
     graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
     best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)
@@ -94,7 +101,7 @@ dema_copy = demand_matrix.copy()
 dema_copy[demand_matrix == 0.] = np.nan
 print(np.nanmean(dist_copy), np.nanmean(dema_copy))
 
-weight = 5000
+weight = 0.5
 min_hop_count = 2
 max_hop_count = 8
 
