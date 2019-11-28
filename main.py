@@ -44,7 +44,6 @@ def node_cost_from_importance(node_importance, weight):
     # return np.exp(- weight * node_importance)
     return weight / (1.0 + node_importance) 
 
-
 def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
     node_importance = importance_of_node_in_between(source, dest, demand_matrix)
     node_cost = node_cost_from_importance(node_importance, weight)
@@ -69,7 +68,10 @@ def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_
         except nx.NetworkXNoPath as e:
             break
         route_chunk = route_chunk[1:]
-        route.extend(route_chunk)
+        if len(route) + len(route_chunk) <= max_hop_count:
+            route.extend(route_chunk)
+        else:
+            break
         distance_matrix = remove_nodes_in_route_from_graph(distance_matrix, route[:-1])
         demand_matrix, _ = set_demand_satisfied_in_route(demand_matrix, route)
         source, dest = dest, get_highest_demand_destination_from(dest, demand_matrix)
@@ -83,7 +85,7 @@ def get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_co
     while np.sum(demand_matrix) > 0.:
         route = get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count)
         demand_matrix, satisfied_demand = set_demand_satisfied_in_route(demand_matrix, route)
-        print(satisfied_demand)
+        print(route, satisfied_demand)
         yield route
 
 
@@ -101,9 +103,9 @@ dema_copy = demand_matrix.copy()
 dema_copy[demand_matrix == 0.] = np.nan
 print(np.nanmean(dist_copy), np.nanmean(dema_copy))
 
-weight = 0.5
-min_hop_count = 2
-max_hop_count = 8
+weight = 500
+min_hop_count = 12
+max_hop_count = 25
 
 routes = list(get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count))
 
