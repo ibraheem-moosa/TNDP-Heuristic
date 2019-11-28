@@ -9,65 +9,89 @@ def read_matrix(path):
     numbers = list(map(int, text.split()))
     size = numbers[0]
     matrix = np.array(numbers[1:]).reshape(size, size)
+    matrix = matrix.astype(np.float64)
+    matrix[matrix < 0] = np.inf
     return matrix
 
 def get_highest_demand_pair(demand_matrix):
     return np.unravel_index(np.argmax(demand_matrix), demand_matrix.shape)
 
-def highest_demand_destination(source, demand_matrix):
+def get_highest_demand_destination_from(source, demand_matrix):
     return np.argmax(demand_matrix[source])
 
-def normalize(matrix):
-    matrix = matrix.astype(np.float64)
-    max_value = np.max(matrix)
-    matrix[matrix < 0] = np.inf
-    # matrix[matrix == 0] = np.inf
-    matrix /= max_value
-    return matrix
+def set_demand_satisfied_in_route(demand_matrix, route):
+    demand_matrix = demand_matrix.copy()
+    satisfied_demand = 0.
+    for i in route:
+        for j in route:
+            satisfied_demand += demand_matrix[i][j]
+            demand_matrix[i][j] = 0.
+    return demand_matrix, satisfied_demand
 
-def get_best_route(source, dest, distance_matrix, demand_matrix, weight):
-    normalized_dist = normalize(distance_matrix.copy())
-    normalized_demand = normalize(demand_matrix.copy())
-    demand_from_source = normalized_demand[source, :]
-    demand_to_dest = normalized_demand[:, dest]
-    print(demand_to_dest)
-    print(demand_from_source)
-    print(normalized_demand)
-    print(normalized_dist)
+def remove_nodes_in_route_from_graph(distance_matrix, route):
+    distance_matrix = distance_matrix.copy()
+    for i in route:
+        distance_matrix[i] = np.inf
+        distance_matrix[:, i] = np.inf
+    return distance_matrix
+
+def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
+    demand_from_source = demand_matrix[source, :]
+    demand_to_dest = demand_matrix[:, dest]
     node_cost = 1.0 / (demand_from_source + demand_to_dest + 1.0)
-    edge_cost = (1.0 - weight) * normalized_dist + weight * 0.5 * np.add.outer(node_cost, node_cost)
-    print(edge_cost)
-    graph = nx.convert_matrix.from_numpy_matrix(edge_cost, create_using=nx.DiGraph)
-    print(graph.edges[source, dest])
+    edge_cost = distance_matrix + weight * np.add.outer(node_cost, node_cost)
+    print('ratio: {}'.format(np.nanmax((edge_cost - distance_matrix) / distance_matrix)))
+
+    edge_cost[distance_matrix == np.inf] = 0.0
+    graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
     best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)
-    print(best_route)
-    route_cost = sum(graph.edges[best_route[i], best_route[i+1]]['weight'] for i in range(len(best_route) - 1))
-    demand_met = sum(demand_matrix[best_route[i]][best_route[i+1]] for i in range(len(best_route) - 1))
-    route_dist = sum(distance_matrix[best_route[i]][best_route[i+1]] for i in range(len(best_route) - 1))
-    print(demand_met)
-    print(route_dist)
-    print(route_cost)
+
+    return best_route
+
+def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count):
+    distance_matrix = distance_matrix.copy()
+    demand_matrix = demand_matrix.copy()
+    source, dest = get_highest_demand_pair(demand_matrix)
+    route = [source]
+    while True:
+        try:
+            route_chunk = get_best_route_between(source, dest, distance_matrix, demand_matrix, weight)
+        except nx.NetworkXNoPath as e:
+            print(e)
+            break
+        route_chunk = route_chunk[1:]
+        route.extend(route_chunk)
+        distance_matrix = remove_nodes_in_route_from_graph(distance_matrix, route[:-1])
+        demand_matrix, _ = set_demand_satisfied_in_route(demand_matrix, route)
+        source, dest = dest, get_highest_demand_destination_from(dest, demand_matrix)
+        if demand_matrix[source][dest] == 0.:
+            break
+    return route
+
+def get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count):
+    distance_matrix = distance_matrix.copy()
+    demand_matrix = demand_matrix.copy()
+    while np.sum(demand_matrix) > 0.:
+        route = get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count)
+        demand_matrix, satisfied_demand = set_demand_satisfied_in_route(demand_matrix, route)
+        print(satisfied_demand)
+        yield route
 
 
 dist_file = Path(sys.argv[1])
-dist = read_matrix(dist_file)
-print(dist.shape)
-# print(dist)
+distance_matrix = read_matrix(dist_file)
 
 demand_file = Path(sys.argv[2])
-demand = read_matrix(demand_file)
-print(demand.shape)
-# print(demand)
+demand_matrix = read_matrix(demand_file)
 
-index = get_highest_demand_pair(demand)
-# print(index)
-# print(demand[index])
+print(demand_matrix.sum())
 
-# print(highest_demand_destination(index[0], demand))
+weight = 2
+min_hop_count = 2
+max_hop_count = 8
 
-# print(normalize(demand))
-# print(normalize(dist))
+routes = list(get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count))
 
-weight = 0.99999
-
-print(get_best_route(index[0], index[1], dist, demand, weight))
+print(len(routes))
+for route in routes:
+    print(route)
