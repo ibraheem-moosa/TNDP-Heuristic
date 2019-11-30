@@ -48,17 +48,9 @@ def node_cost_from_importance(node_importance, weight):
 
 
 def get_best_route_between(source, dest, graph, demand_matrix, weight):
-    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     node_importance = importance_of_node_in_between(source, dest, demand_matrix)
     node_cost = node_cost_from_importance(node_importance, weight)
-    edge_cost = distance_matrix + np.add.outer(node_cost, node_cost)
-
-    edge_cost[distance_matrix == 0.0] = 0.0
-    # print('ratio: {}'.format(np.nanmax(edge_cost / np.add.outer(node_cost, node_cost))))
-
-    graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
-    best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)#, weight=lambda u,v,d: node_cost[u] + node_cost[v] + d['weight'])
-
+    best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest, weight=lambda u,v,d: node_cost[u] + node_cost[v] + d['weight'])
     return best_route
 
 
