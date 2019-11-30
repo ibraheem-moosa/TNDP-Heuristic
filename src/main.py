@@ -99,8 +99,8 @@ def get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_co
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python main.py distance_file demand_file")
+    if len(sys.argv) < 5:
+        print("Usage: python main.py distance_file demand_file max_hop_count weight")
         exit(0)
 
     dist_file = Path(sys.argv[1])
@@ -108,6 +108,9 @@ if __name__ == "__main__":
 
     demand_file = Path(sys.argv[2])
     demand_matrix = read_matrix(demand_file)
+
+    max_hop_count = int(sys.argv[3])
+    weight = float(sys.argv[4])
 
     print(demand_matrix.sum())
 
@@ -117,9 +120,7 @@ if __name__ == "__main__":
     dema_copy[demand_matrix == 0.] = np.nan
     print(np.nanmean(dist_copy), np.nanmean(dema_copy))
 
-    weight = 50
-    min_hop_count = 12
-    max_hop_count = 25
+    min_hop_count = 0
 
     routes = list(get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count))
 
