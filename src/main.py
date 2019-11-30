@@ -67,7 +67,7 @@ def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight)
 
 
 def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count):
-    distance_matrix = distance_matrix.copy()
+    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     demand_matrix = demand_matrix.copy()
     source, dest = get_highest_demand_pair(demand_matrix)
     route = [source]
@@ -90,10 +90,9 @@ def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_
 
 
 def get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count):
-    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     demand_matrix = demand_matrix.copy()
     while np.sum(demand_matrix) > 0.:
-        route = get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count)
+        route = get_route_satisfying_constraint(graph, demand_matrix, weight, min_hop_count, max_hop_count)
         demand_matrix, satisfied_demand = set_demand_satisfied_in_route(demand_matrix, route)
         print(route, satisfied_demand)
         yield route
