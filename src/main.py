@@ -1,4 +1,5 @@
 import sys
+import json
 import networkx as nx
 import numpy as np
 from pathlib import Path
@@ -9,8 +10,8 @@ def read_matrix(path):
     numbers = list(map(int, text.split()))
     size = numbers[0]
     matrix = np.array(numbers[1:]).reshape(size, size)
-    matrix = matrix.astype(np.float64)
-    matrix[matrix < 0] = np.inf
+    # matrix = matrix.astype(np.float64)
+    # matrix[matrix < 0] = np.inf
     return matrix
 
 
@@ -57,7 +58,7 @@ def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight)
     edge_cost = distance_matrix + np.add.outer(node_cost, node_cost)
 
     edge_cost[distance_matrix == np.inf] = 0.0
-    print('ratio: {}'.format(np.nanmax(edge_cost / np.add.outer(node_cost, node_cost))))
+    # print('ratio: {}'.format(np.nanmax(edge_cost / np.add.outer(node_cost, node_cost))))
 
     graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
     best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)
@@ -88,14 +89,24 @@ def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_
     return route
 
 
-def get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count):
-    distance_matrix = distance_matrix.copy()
+def get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count):
+    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     demand_matrix = demand_matrix.copy()
     while np.sum(demand_matrix) > 0.:
         route = get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count)
         demand_matrix, satisfied_demand = set_demand_satisfied_in_route(demand_matrix, route)
         print(route, satisfied_demand)
         yield route
+
+def save_graph_as_json(distance_matrix, file_path):
+    distance_matrix = distance_matrix.copy()
+    distance_matrix[distance_matrix == -1] = 0
+    graph = nx.convert_matrix.from_numpy_matrix(distance_matrix)
+    dest_path = file_path.parent/(file_path.stem + '.json')
+    data = nx.readwrite.json_graph.node_link_data(graph)
+    with open(dest_path, 'w') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+    return graph
 
 
 if __name__ == "__main__":
@@ -104,25 +115,29 @@ if __name__ == "__main__":
         exit(0)
 
     dist_file = Path(sys.argv[1])
-    distance_matrix = read_matrix(dist_file)
+    if dist_file.suffix == '.json':
+        with open(dist_file) as f:
+            data = json.load(f)
+        graph = nx.readwrite.json_graph.node_link_graph(data)
+        distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
+    else:
+        distance_matrix = read_matrix(dist_file)
+        graph = save_graph_as_json(distance_matrix, dist_file)
+
+    mean = lambda l: sum(l) / len(l)
+    print('Average distance: {}'.format(mean(list(map(lambda d:d[2], graph.edges.data(data='weight'))))))
 
     demand_file = Path(sys.argv[2])
     demand_matrix = read_matrix(demand_file)
 
-    max_hop_count = int(sys.argv[3])
+    print('Average demand: {}'.format(demand_matrix[np.nonzero(demand_matrix)].mean()))
+    print('Total demand: {}'.format(demand_matrix.sum()))
+
     weight = float(sys.argv[4])
-
-    print(demand_matrix.sum())
-
-    dist_copy = distance_matrix.copy()
-    dist_copy[distance_matrix == np.inf] = np.nan
-    dema_copy = demand_matrix.copy()
-    dema_copy[demand_matrix == 0.] = np.nan
-    print(np.nanmean(dist_copy), np.nanmean(dema_copy))
-
+    max_hop_count = int(sys.argv[3])
     min_hop_count = 0
 
-    routes = list(get_routes(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count))
+    routes = list(get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count))
 
     print(len(routes))
     for route in routes:
