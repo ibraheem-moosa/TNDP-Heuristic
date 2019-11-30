@@ -31,10 +31,11 @@ def set_demand_satisfied_in_route(demand_matrix, route):
     return demand_matrix, satisfied_demand
 
 
-def remove_nodes_in_route_from_graph(graph, route):
+def disconnect_nodes_in_route_from_graph(graph, route):
     for i in route:
         edges_to_remove = list((i, j) for j in graph[i])
         graph.remove_edges_from(edges_to_remove)
+
 
 def importance_of_node_in_between(source, dest, demand_matrix):
     demand_from_source = demand_matrix[source, :]
@@ -69,7 +70,7 @@ def get_route_satisfying_constraint(graph, demand_matrix, weight, min_hop_count,
             route.extend(route_chunk)
         else:
             break
-        remove_nodes_in_route_from_graph(graph, route[:-1])
+        disconnect_nodes_in_route_from_graph(graph, route[:-1])
         demand_matrix, _ = set_demand_satisfied_in_route(demand_matrix, route)
         source, dest = dest, get_highest_demand_destination_from(dest, demand_matrix)
         if demand_matrix[source][dest] == 0.:
@@ -84,6 +85,7 @@ def get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count):
         demand_matrix, satisfied_demand = set_demand_satisfied_in_route(demand_matrix, route)
         print(route, satisfied_demand)
         yield route
+
 
 def save_graph_as_json(distance_matrix, file_path):
     distance_matrix = distance_matrix.copy()
