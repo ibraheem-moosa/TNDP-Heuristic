@@ -10,8 +10,6 @@ def read_matrix(path):
     numbers = list(map(int, text.split()))
     size = numbers[0]
     matrix = np.array(numbers[1:]).reshape(size, size)
-    # matrix = matrix.astype(np.float64)
-    # matrix[matrix < 0] = np.inf
     return matrix
 
 
@@ -33,13 +31,10 @@ def set_demand_satisfied_in_route(demand_matrix, route):
     return demand_matrix, satisfied_demand
 
 
-def remove_nodes_in_route_from_graph(distance_matrix, route):
-    distance_matrix = distance_matrix.copy()
+def remove_nodes_in_route_from_graph(graph, route):
     for i in route:
-        distance_matrix[i] = np.inf
-        distance_matrix[:, i] = np.inf
-    return distance_matrix
-
+        edges_to_remove = list((i, j) for j in graph[i])
+        graph.remove_edges_from(edges_to_remove)
 
 def importance_of_node_in_between(source, dest, demand_matrix):
     demand_from_source = demand_matrix[source, :]
@@ -52,28 +47,29 @@ def node_cost_from_importance(node_importance, weight):
     return weight / (1.0 + node_importance)
 
 
-def get_best_route_between(source, dest, distance_matrix, demand_matrix, weight):
+def get_best_route_between(source, dest, graph, demand_matrix, weight):
+    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     node_importance = importance_of_node_in_between(source, dest, demand_matrix)
     node_cost = node_cost_from_importance(node_importance, weight)
     edge_cost = distance_matrix + np.add.outer(node_cost, node_cost)
 
-    edge_cost[distance_matrix == np.inf] = 0.0
+    edge_cost[distance_matrix == 0.0] = 0.0
     # print('ratio: {}'.format(np.nanmax(edge_cost / np.add.outer(node_cost, node_cost))))
 
     graph = nx.convert_matrix.from_numpy_matrix(edge_cost)
-    best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)
+    best_route = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, source, dest)#, weight=lambda u,v,d: node_cost[u] + node_cost[v] + d['weight'])
 
     return best_route
 
 
-def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_hop_count, max_hop_count):
-    distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
+def get_route_satisfying_constraint(graph, demand_matrix, weight, min_hop_count, max_hop_count):
+    graph = graph.copy()
     demand_matrix = demand_matrix.copy()
     source, dest = get_highest_demand_pair(demand_matrix)
     route = [source]
     while True:
         try:
-            route_chunk = get_best_route_between(source, dest, distance_matrix, demand_matrix, weight)
+            route_chunk = get_best_route_between(source, dest, graph, demand_matrix, weight)
         except nx.NetworkXNoPath as e:
             break
         route_chunk = route_chunk[1:]
@@ -81,7 +77,7 @@ def get_route_satisfying_constraint(distance_matrix, demand_matrix, weight, min_
             route.extend(route_chunk)
         else:
             break
-        distance_matrix = remove_nodes_in_route_from_graph(distance_matrix, route[:-1])
+        remove_nodes_in_route_from_graph(graph, route[:-1])
         demand_matrix, _ = set_demand_satisfied_in_route(demand_matrix, route)
         source, dest = dest, get_highest_demand_destination_from(dest, demand_matrix)
         if demand_matrix[source][dest] == 0.:
