@@ -5,10 +5,10 @@ import numpy as np
 from pathlib import Path
 
 
-def read_matrix(path):
+def read_matrix(path, dtype):
     text = path.read_text()
-    numbers = list(map(int, text.split()))
-    size = numbers[0]
+    numbers = list(map(dtype, text.split()))
+    size = int(numbers[0])
     matrix = np.array(numbers[1:]).reshape(size, size)
     return matrix
 
@@ -89,8 +89,8 @@ def get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count):
 
 def save_graph_as_json(distance_matrix, file_path):
     distance_matrix = distance_matrix.copy()
-    distance_matrix[distance_matrix == -1] = 0
-    graph = nx.convert_matrix.from_numpy_matrix(distance_matrix)
+    distance_matrix[distance_matrix == -1] = float("inf")
+    graph = nx.convert_matrix.from_numpy_matrix(distance_matrix, create_using=nx.DiGraph)
     dest_path = file_path.parent/(file_path.stem + '.json')
     data = nx.readwrite.json_graph.node_link_data(graph)
     with open(dest_path, 'w') as f:
@@ -110,14 +110,14 @@ if __name__ == "__main__":
         graph = nx.readwrite.json_graph.node_link_graph(data)
         distance_matrix = nx.convert_matrix.to_numpy_matrix(graph)
     else:
-        distance_matrix = read_matrix(dist_file)
+        distance_matrix = read_matrix(dist_file, dtype=float)
         graph = save_graph_as_json(distance_matrix, dist_file)
 
     mean = lambda l: sum(l) / len(l)
-    print('Average distance: {}'.format(mean(list(map(lambda d:d[2], graph.edges.data(data='weight'))))))
+    print('Average distance: {}'.format(mean([weight for weight in list(map(lambda d:d[2], graph.edges.data(data='weight'))) if weight != float("inf") ])))
 
     demand_file = Path(sys.argv[2])
-    demand_matrix = read_matrix(demand_file)
+    demand_matrix = read_matrix(demand_file, dtype=int)
 
     print('Average demand: {}'.format(demand_matrix[np.nonzero(demand_matrix)].mean()))
     print('Total demand: {}'.format(demand_matrix.sum()))
