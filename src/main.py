@@ -90,7 +90,7 @@ def get_routes(graph, demand_matrix, weight, min_hop_count, max_hop_count):
 def save_graph_as_json(distance_matrix, file_path):
     distance_matrix = distance_matrix.copy()
     distance_matrix[distance_matrix == -1] = 0
-    graph = nx.convert_matrix.from_numpy_matrix(distance_matrix)
+    graph = nx.convert_matrix.from_numpy_matrix(distance_matrix, create_using=nx.DiGraph)
     dest_path = file_path.parent/(file_path.stem + '.json')
     data = nx.readwrite.json_graph.node_link_data(graph)
     with open(dest_path, 'w') as f:
